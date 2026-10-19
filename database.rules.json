@@ -1,0 +1,77 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "usernames": {
+      "$n": {
+        ".read": "auth != null",
+        ".validate": "$n.matches(/^[a-z0-9_]{3,16}$/) && newData.isString()",
+        ".write": "auth != null && ((!data.exists() && newData.val() === auth.uid) || (data.val() === auth.uid && !newData.exists()))"
+      }
+    },
+
+    "users": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid === $uid",
+        "username": { ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9_]{3,16}$/)" }
+      }
+    },
+
+    "presence": {
+      "$uid": { ".read": "auth != null", ".write": "auth != null && auth.uid === $uid" }
+    },
+
+    "friends": {
+      "$a": {
+        ".read": "auth != null && auth.uid === $a",
+        "$b": {
+          ".write": "auth != null && (auth.uid === $a || (auth.uid === $b && (!newData.exists() || root.child('friendRequests').child(auth.uid).child($a).exists())))"
+        }
+      }
+    },
+
+    "friendRequests": {
+      "$to": {
+        ".read": "auth != null && auth.uid === $to",
+        "$from": {
+          ".write": "auth != null && ((auth.uid === $from && !root.child('friends').child($from).child($to).exists()) || auth.uid === $to)"
+        }
+      }
+    },
+
+    "invites": {
+      "$to": {
+        ".read": "auth != null && auth.uid === $to",
+        "$from": {
+          ".write": "auth != null && ((auth.uid === $from && root.child('friends').child($from).child($to).exists()) || auth.uid === $to)"
+        }
+      }
+    },
+
+    "rooms": {
+      "$room": {
+        ".read": "auth != null && root.child('rooms').child($room).child('allowed').child(auth.uid).exists()",
+        "meta": {
+          ".write": "auth != null && ((!data.exists() && newData.child('host').val() === auth.uid) || data.child('host').val() === auth.uid)"
+        },
+        "allowed": {
+          "$u": { ".write": "auth != null && newData.parent().parent().child('meta').child('host').val() === auth.uid" }
+        },
+        "slots": {
+          "$i": {
+            ".validate": "$i.matches(/^[0-4]$/)",
+            ".write": "auth != null && root.child('rooms').child($room).child('allowed').child(auth.uid).exists() && (newData.val() === auth.uid || (!newData.exists() && data.val() === auth.uid))"
+          }
+        },
+        "players": {
+          "$u": { ".write": "auth != null && auth.uid === $u && root.child('rooms').child($room).child('allowed').child(auth.uid).exists()" }
+        },
+        "state": {
+          "$u": { ".write": "auth != null && auth.uid === $u && root.child('rooms').child($room).child('allowed').child(auth.uid).exists()" }
+        }
+      }
+    }
+  }
+}
