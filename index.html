@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Killer VS Survivor</title>
+<style>
+  :root { --red:#e11d2e; --red-d:#8f0f1b; --blk:#0b0b0d; --panel:#141417; --panel2:#1b1b20; --line:#2c2c33; --wht:#f5f5f7; --mut:#9a9aa6; --ok:#3ddc84; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--blk); color: var(--wht); font-family: system-ui, "Segoe UI", sans-serif; user-select: none; touch-action: none; }
+  canvas { display: block; }
+  h1, h2, .logo, .btn { font-family: Impact, "Arial Narrow Bold", "Arial Black", system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+
+  /* ===== lapisan UI (login, username, menu) ===== */
+  #ui { position: fixed; inset: 0; z-index: 5; overflow: hidden;
+    background:
+      radial-gradient(ellipse 70% 55% at 12% -5%, rgba(225,29,46,.42), transparent 60%),
+      radial-gradient(ellipse 60% 50% at 105% 105%, rgba(225,29,46,.26), transparent 60%),
+      repeating-linear-gradient(135deg, #0b0b0d 0 22px, #0f0f12 22px 44px); }
+  #ui::before { content: "VS"; position: absolute; right: -2vw; bottom: -9vw; font: 900 38vw/1 Impact, "Arial Black", sans-serif; color: rgba(225,29,46,.06); pointer-events: none; }
+  #ui::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,.65)); pointer-events: none; }
+  .screen { position: absolute; inset: 0; z-index: 1; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; touch-action: pan-y; }
+  .menu { justify-content: flex-start; align-items: stretch; max-width: 1060px; margin: 0 auto; }
+
+  .title { text-align: center; margin-bottom: 26px; }
+  .title .k { display: block; font: 400 clamp(46px, 11vw, 92px)/.95 Impact, "Arial Black", sans-serif; color: var(--red); letter-spacing: .04em; text-shadow: 0 0 40px rgba(225,29,46,.55), 3px 3px 0 #000; transform: skewX(-8deg); }
+  .title .v { display: inline-block; margin: 6px 0; padding: 1px 14px; background: var(--wht); color: var(--blk); font: 400 clamp(16px, 3.4vw, 26px) Impact, sans-serif; letter-spacing: .3em; transform: skewX(-8deg); }
+  .title .s { display: block; font: 400 clamp(46px, 11vw, 92px)/.95 Impact, "Arial Black", sans-serif; color: var(--wht); letter-spacing: .04em; text-shadow: 3px 3px 0 #000; transform: skewX(-8deg); }
+  .tag { margin-top: 10px; color: var(--mut); font-size: 12px; letter-spacing: .35em; text-transform: uppercase; }
+
+  .card { position: relative; background: linear-gradient(180deg, var(--panel2), var(--panel)); border: 1px solid var(--line); border-left: 4px solid var(--red); padding: 18px 20px;
+    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%); box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+  .card h2 { margin: 0 0 12px; font-size: 22px; color: var(--wht); display: flex; align-items: center; gap: 10px; }
+  .card h2::after { content: ""; flex: 1; height: 2px; background: linear-gradient(90deg, var(--red), transparent); }
+  .login { width: min(400px, 100%); display: grid; gap: 12px; }
+  .muted { color: var(--mut); font-size: 13px; line-height: 1.55; margin: 0; }
+  .warn { display: none; background: rgba(225,29,46,.12); border: 1px solid var(--red-d); color: #ffb4ba; padding: 9px 12px; font-size: 12.5px; line-height: 1.5; }
+
+  .btn { appearance: none; border: 0; cursor: pointer; color: var(--wht); background: var(--red); padding: 12px 18px; font-size: 16px; border-bottom: 3px solid var(--red-d);
+    clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); transition: transform .08s, filter .15s; }
+  .btn:hover:not(:disabled) { filter: brightness(1.15); } .btn:active:not(:disabled) { transform: translateY(2px); }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .btn.white { background: var(--wht); color: var(--blk); border-bottom-color: #aaa; }
+  .btn.ghost { background: transparent; color: var(--wht); border: 1px solid var(--line); clip-path: none; border-bottom-width: 1px; }
+  .btn.ghost:hover:not(:disabled) { border-color: var(--red); }
+  .btn.sm { padding: 6px 11px; font-size: 13px; } .btn.big { font-size: 20px; padding: 15px 22px; }
+  .gbadge { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--blk); color: var(--wht); font: 700 14px system-ui; margin-right: 10px; vertical-align: middle; }
+
+  input.txt { width: 100%; background: var(--blk); border: 1px solid var(--line); border-bottom: 2px solid var(--red); color: var(--wht); padding: 12px 14px; font: 600 16px system-ui; outline: none; user-select: text; }
+  input.txt:focus { border-color: var(--red); }
+  .err { color: #ff6b78; font-size: 13px; min-height: 18px; } .okm { color: var(--ok); font-size: 13px; min-height: 18px; }
+
+  /* ===== menu ===== */
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 4px 0 16px; }
+  .logo { font-size: 26px; color: var(--red); text-shadow: 2px 2px 0 #000; transform: skewX(-8deg); } .logo i { font-style: normal; background: var(--wht); color: var(--blk); padding: 0 7px; margin: 0 6px; font-size: 18px; vertical-align: 3px; }
+  .chip { display: flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--line); padding: 5px 5px 5px 14px; }
+  .chip b { font-size: 15px; } .chip b::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); margin-right: 8px; }
+  .grid { display: grid; grid-template-columns: 1.25fr 1fr; gap: 18px; align-items: start; }
+  .slots { display: grid; gap: 8px; margin: 4px 0 14px; }
+  .slot { display: flex; align-items: center; gap: 12px; padding: 9px 12px; background: var(--blk); border: 1px solid var(--line); min-height: 52px; }
+  .slot.empty { border-style: dashed; color: var(--mut); font-size: 13px; }
+  .av { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--red); font: 400 18px Impact, sans-serif; flex: none; } .av.w { background: var(--wht); color: var(--blk); }
+  .slot b { font-size: 15px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge { background: var(--red); font: 400 11px Impact, sans-serif; letter-spacing: .12em; padding: 2px 8px; } .badge.w { background: var(--wht); color: var(--blk); }
+  .code { display: inline-block; background: var(--blk); border: 1px dashed var(--red); padding: 3px 10px; font: 700 14px ui-monospace, monospace; letter-spacing: .2em; color: var(--wht); }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .tabs { display: flex; gap: 4px; margin: -4px 0 12px; border-bottom: 1px solid var(--line); }
+  .tabs button { flex: 1; background: none; border: 0; color: var(--mut); padding: 10px 4px; font: 400 15px Impact, sans-serif; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; border-bottom: 3px solid transparent; }
+  .tabs button.on { color: var(--wht); border-bottom-color: var(--red); }
+  .tabs em { font-style: normal; background: var(--red); color: #fff; padding: 0 6px; margin-left: 4px; font-size: 12px; border-radius: 8px; } .tabs em:empty { display: none; }
+  .list { display: grid; gap: 7px; max-height: 46vh; overflow-y: auto; touch-action: pan-y; }
+  .fr { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--blk); border: 1px solid var(--line); }
+  .fr .dot { width: 9px; height: 9px; border-radius: 50%; background: #55555e; flex: none; } .fr .dot.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .fr b { flex: 1; font-size: 14px; overflow: hidden; text-overflow: ellipsis; } .fr small { color: var(--mut); font-size: 11px; display: block; font-weight: 400; }
+  .practice { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; padding-bottom: 20px; }
+
+  #toasts { position: absolute; right: 14px; bottom: 14px; z-index: 9; display: grid; gap: 8px; width: min(330px, calc(100% - 28px)); }
+  .toast { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--red); padding: 11px 14px; font-size: 14px; box-shadow: 0 8px 30px rgba(0,0,0,.6); animation: pop .2s ease-out; }
+  .toast.good { border-left-color: var(--ok); } .toast .row { margin-top: 8px; }
+  @keyframes pop { from { transform: translateX(30px); opacity: 0; } }
+
+  /* ===== HUD & kontrol sentuh ===== */
+  #hud { display: none; position: fixed; left: 14px; top: 12px; z-index: 4; pointer-events: none; text-shadow: 0 2px 4px #000; }
+  #role { display: inline-block; background: var(--red); font: 400 16px Impact, sans-serif; letter-spacing: .12em; padding: 3px 12px; transform: skewX(-8deg); }
+  #state { margin-top: 8px; font: 400 26px Impact, sans-serif; letter-spacing: .08em; text-transform: uppercase; } #state.ice { color: #8fe3ff; } #state.bad { color: var(--red); }
+  #help { margin-top: 6px; font-size: 12px; color: #d4d4dc; max-width: 320px; line-height: 1.5; }
+  #btnLeave { pointer-events: auto; margin-top: 10px; }
+  #touch { display: none; position: fixed; inset: 0; pointer-events: none; z-index: 3; }
+  #joy { position: absolute; left: 24px; bottom: 28px; width: 120px; height: 120px; border-radius: 50%; background: rgba(255,255,255,.1); border: 2px solid rgba(225,29,46,.6); }
+  #knob { position: absolute; left: 36px; top: 36px; width: 44px; height: 44px; border-radius: 50%; background: rgba(225,29,46,.85); }
+  .act { position: absolute; right: 24px; width: 64px; height: 64px; border-radius: 50%; border: 2px solid var(--red); background: rgba(11,11,13,.6); color: #fff; font: 400 13px Impact, sans-serif; letter-spacing: .05em; pointer-events: auto; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } .logo { font-size: 20px; } }
+</style>
+</head>
+<body>
+<div id="ui">
+  <!-- LOGIN -->
+  <section class="screen" id="sLogin">
+    <div class="title"><span class="k">Killer</span><span class="v">VS</span><span class="s">Survivor</span><div class="tag">Asymmetric · 1 vs 4</div></div>
+    <div class="card login">
+      <h2>Masuk</h2>
+      <div class="warn" id="cfgWarn">Firebase belum diisi. Isi <b>firebaseConfig</b> di net.js untuk login &amp; online. Sementara pakai Latihan Solo.</div>
+      <button class="btn white big" id="btnGoogle"><span class="gbadge">G</span>Masuk dengan Google</button>
+      <button class="btn ghost" id="btnSoloLogin">Latihan Solo (tanpa akun)</button>
+      <p class="muted">Setelah login kamu memilih username, lalu saling add teman untuk main bareng.</p>
+      <a class="muted" style="text-align:center;color:#e11d2e" href="https://github.com/byhasstudio/killer-vs-survivor/archive/refs/heads/main.zip">⬇ Unduh game (ZIP)</a>
+    </div>
+  </section>
+
+  <!-- USERNAME -->
+  <section class="screen" id="sName">
+    <div class="title"><span class="k" style="font-size:clamp(36px,8vw,64px)">Buat Username</span></div>
+    <div class="card login">
+      <h2>Identitasmu</h2>
+      <input class="txt" id="nameIn" maxlength="16" placeholder="contoh: Rakaa_99" autocomplete="off" autocapitalize="off">
+      <div class="err" id="nameErr"></div>
+      <button class="btn big" id="btnName">Lanjut</button>
+      <p class="muted">3–16 karakter: huruf, angka, atau _. Username unik dan dipakai temanmu untuk menambahmu.</p>
+    </div>
+  </section>
+
+  <!-- MENU -->
+  <section class="screen menu" id="sMenu">
+    <header class="top">
+      <div class="logo">Killer<i>VS</i>Survivor</div>
+      <div class="chip"><b id="meName"></b><button class="btn ghost sm" id="btnLogout">Keluar</button></div>
+    </header>
+    <div class="grid">
+      <div class="card"><h2>Party</h2><div id="partyBody"></div></div>
+      <div class="card">
+        <div class="tabs">
+          <button data-tab="list" class="on">Teman</button>
+          <button data-tab="req">Permintaan<em id="reqBadge"></em></button>
+          <button data-tab="add">Tambah</button>
+        </div>
+        <div id="friendBody"></div>
+      </div>
+    </div>
+    <div class="practice">
+      <button class="btn ghost" id="pSurv">Latihan Solo · Survivor</button>
+      <button class="btn ghost" id="pKill">Latihan Solo · Killer</button>
+    </div>
+  </section>
+  <div id="toasts"></div>
+</div>
+
+<div id="hud"><div id="role"></div><div id="state"></div>
+  <div id="help">WASD gerak · Shift lari · Spasi lompat · C jongkok · klik layar untuk kamera · T = paksa licin (tes)</div>
+  <button class="btn ghost sm" id="btnLeave">Keluar ke menu</button></div>
+<div id="touch"><div id="joy"><div id="knob"></div></div>
+  <button class="act" id="bJump" style="bottom:96px">Lompat</button>
+  <button class="act" id="bRun" style="bottom:170px">Lari</button>
+  <button class="act" id="bCrouch" style="bottom:22px">Jongkok</button></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="chibi.js"></script>
+<script src="net.js"></script>
+<script src="game.js"></script>
+<script src="ui.js"></script>
+</body>
+</html>
