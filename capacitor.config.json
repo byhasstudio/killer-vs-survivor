@@ -1,0 +1,6 @@
+{
+  "appId": "com.byhasstudio.killervssurvivor",
+  "appName": "Killer VS Survivor",
+  "webDir": "www",
+  "server": { "androidScheme": "https" }
+}
