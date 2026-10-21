@@ -27,7 +27,18 @@ const CFG = {
   fallTime: 3.0,       // lama tidak bisa bergerak setelah jatuh (detik)
   getUpTime: 0.6,      // lama animasi berdiri
   radius: 0.38,        // radius kapsul tabrakan
-  scale: 1.4           // skala model chibi (tinggi asli ± 1.25)
+  scale: 1.4,          // skala model chibi (tinggi asli ± 1.25)
+  // --- Stamina Survivor (lari) ---
+  staminaMax: 100,
+  staminaDrain: 22,         // stamina/detik saat lari
+  staminaRegen: 14,         // stamina/detik pulih saat tidak lari
+  staminaRegenDelay: 0.8,   // jeda sebelum mulai pulih
+  // --- Terkam (lunge) Killer ---
+  lungeSpeed: 14,
+  lungeTime: 0.28,
+  lungeCooldown: 4.5,
+  lungeRange: 2.4,
+  heartbeatRange: 11        // jarak Survivor mulai "dengar" detak jantung Killer
 };
 
 /* ---------- 2. DUNIA: lantai, zona es, dinding (kotak AABB) ---------- */
@@ -96,6 +107,9 @@ class Pawn {
     this.state = 'normal';                   // 'normal' | 'fallen' | 'gettingUp'
     this.stateT = 0; this.tiltTarget = -Math.PI / 2; this.fallClock = 0;
     this.crouch = false; this.speed = 0; this.walkPhase = 0;
+    // --- stamina (Survivor) & Terkam (Killer) ---
+    this.stamina = CFG.staminaMax; this.staminaRegenT = 0;
+    this.lungeT = 0; this.lungeCd = 0; this.lungeDir = { x: 0, z: 0 }; this.lungeActive = false;
     // --- visual: pivot(posisi+yaw) -> tilt(rotasi jatuh) -> model chibi ---
     this.pivot = new THREE.Group(); this.tilt = new THREE.Group();
     this.model = createChibi(CHARS[SLOT_CHAR[slot]].o);
@@ -134,7 +148,18 @@ class Pawn {
     // (3) Kecepatan target
     this.crouch = g && inp.crouch;
     let sp = CFG.walkSpeed * (killer ? CFG.killerMul : 1);
-    if (this.crouch) sp *= CFG.crouchMul; else if (inp.run) sp *= CFG.runMul;
+    if (this.crouch) sp *= CFG.crouchMul;
+    else if (!killer) {
+      // --- Stamina: lari menguras stamina, habis = jalan biasa ---
+      if (inp.run && this.stamina > 0 && inLen > 0) {
+        sp *= CFG.runMul;
+        this.stamina = clamp(this.stamina - CFG.staminaDrain * dt, 0, CFG.staminaMax);
+        this.staminaRegenT = CFG.staminaRegenDelay;
+      } else {
+        this.staminaRegenT -= dt;
+        if (this.staminaRegenT <= 0) this.stamina = clamp(this.stamina + CFG.staminaRegen * dt, 0, CFG.staminaMax);
+      }
+    } else if (inp.run) sp *= CFG.runMul;
 
     if (g && this.grounded && this.isSlippery) {
       /* ===== MODE LICIN (isSlippery = TRUE) =====
@@ -168,6 +193,19 @@ class Pawn {
       const fr = Math.exp(-1.8 * dt); v.x *= fr; v.z *= fr;
     }
 
+    // (3.5) Terkam (lunge) Killer: dash cepat ke arah hadap, lalu cooldown
+    this.lungeActive = false;
+    if (killer) {
+      if (this.lungeCd > 0) this.lungeCd -= dt;
+      if (this.lungeT > 0) {
+        this.lungeT -= dt; this.lungeActive = true;
+        v.x = this.lungeDir.x * CFG.lungeSpeed; v.z = this.lungeDir.z * CFG.lungeSpeed;
+      } else if (g && this.grounded && inp.lunge && this.lungeCd <= 0) {
+        this.lungeDir = { x: Math.sin(this.yaw), z: Math.cos(this.yaw) };
+        this.lungeT = CFG.lungeTime; this.lungeCd = CFG.lungeCooldown; this.lungeActive = true;
+      }
+    }
+
     // (4) Lompat + gravitasi
     if (g && this.grounded && inp.jump) { v.y = CFG.jumpSpeed; this.grounded = false; }
     v.y -= CFG.gravity * dt;
@@ -184,7 +222,7 @@ class Pawn {
     }
 
     // (7) Hadap ke arah gerak (bukan saat jatuh)
-    if (g && (inLen > 0 || Math.hypot(v.x, v.z) > 0.5)) {
+    if (g && (inLen > 0 || Math.hypot(v.x, v.z) > 0.5) && this.lungeT <= 0) {
       const want = inLen > 0 ? Math.atan2(dx, dz) : Math.atan2(v.x, v.z);
       this.yaw += angDiff(this.yaw, want) * Math.min(1, dt * 12);
     }
@@ -245,7 +283,7 @@ class Pawn {
       const m = ['normal', 'fallen', 'gettingUp'][d.st];
       if (m !== this.state && m === 'fallen') this.fallClock = 0;
       this.state = m; this.stateT = d.sT; this.tiltTarget = d.tt;
-      this.crouch = !!d.cr; this.isSlippery = !!d.sl;
+      this.crouch = !!d.cr; this.isSlippery = !!d.sl; this.lungeActive = !!d.lu;
     }
     if (this.state !== 'normal') this.fallClock += dt;
   }
@@ -265,7 +303,11 @@ class Pawn {
       const amp = clamp(this.speed / 6, 0, 1.2);
       this.walkPhase += this.speed * dt * 2.2;
       const ph = this.walkPhase, s = Math.sin(ph);
-      if (this.crouch) {                                 // jongkok
+      if (this.lungeActive) {                             // Terkam: tangan terjulur ke depan
+        J.armL.rotation.x = J.armR.rotation.x = -1.3;
+        J.armL.rotation.z = -0.1; J.armR.rotation.z = 0.1;
+        J.spine.rotation.x = 0.2;
+      } else if (this.crouch) {                            // jongkok
         J.hips.position.y -= 0.1;
         J.legL.rotation.x = J.legR.rotation.x = -0.9; J.kneeL.rotation.x = J.kneeR.rotation.x = 1.5;
         J.spine.rotation.x = 0.25;
@@ -312,7 +354,7 @@ class Pawn {
   netState() {
     return { x: +this.pos.x.toFixed(2), y: +this.pos.y.toFixed(2), z: +this.pos.z.toFixed(2), yaw: +this.yaw.toFixed(2),
       st: ['normal', 'fallen', 'gettingUp'].indexOf(this.state), sT: +this.stateT.toFixed(2), tt: this.tiltTarget,
-      cr: this.crouch ? 1 : 0, sl: this.isSlippery ? 1 : 0 };
+      cr: this.crouch ? 1 : 0, sl: this.isSlippery ? 1 : 0, lu: this.lungeActive ? 1 : 0 };
   }
 }
 
@@ -336,8 +378,10 @@ addEventListener('resize', resize); resize();
 // kamera orbit: camYaw (kiri-kanan), camPitch (atas-bawah)
 const cam = { yaw: 0, pitch: 0.35, dist: 5.5 };
 const keys = {}; const touch = { x: 0, z: 0, jump: false, run: false, crouch: false };
-addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'KeyT' && me) me.slipOverride = !me.slipOverride; if (e.code === 'Space') e.preventDefault(); });
+let wantLunge = false;                                    // tombol Terkam (Killer): klik kiri / E / tombol sentuh
+addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'KeyT' && me) me.slipOverride = !me.slipOverride; if (e.code === 'Space') e.preventDefault(); if (e.code === 'KeyE' && me && me.role === 'killer') wantLunge = true; });
 addEventListener('keyup', e => keys[e.code] = false);
+addEventListener('mousedown', e => { if (e.button === 0 && me && me.role === 'killer' && document.pointerLockElement === renderer.domElement) wantLunge = true; });
 renderer.domElement.addEventListener('click', () => { if (!('ontouchstart' in window)) renderer.domElement.requestPointerLock?.(); });
 addEventListener('mousemove', e => {
   if (document.pointerLockElement !== renderer.domElement) return;
@@ -365,11 +409,14 @@ if ('ontouchstart' in window) {
 
 function readInput() {
   const k = keys;
-  return {
+  const inp = {
     x: (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0) + touch.x,
     z: (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0) + touch.z,
-    run: !!(k.ShiftLeft || k.ShiftRight) || touch.run, jump: !!k.Space || touch.jump, crouch: !!k.KeyC || touch.crouch
+    run: !!(k.ShiftLeft || k.ShiftRight) || touch.run, jump: !!k.Space || touch.jump, crouch: !!k.KeyC || touch.crouch,
+    lunge: wantLunge
   };
+  wantLunge = false;                 // tombol Terkam: sekali tekan = sekali aksi
+  return inp;
 }
 
 function updateCamera(dt) {
@@ -393,6 +440,38 @@ function startGame(slot, isOnline) {
   me = new Pawn(slot, scene, true);
   hudRole.textContent = (slot === 0 ? 'KILLER' : 'SURVIVOR ' + slot) + (online ? ' · ONLINE' : ' · LATIHAN SOLO');
   document.getElementById('ui').style.display = 'none'; document.getElementById('hud').style.display = 'block';
+  document.getElementById('help').textContent = me.role === 'killer'
+    ? 'WASD gerak · Shift lari · Spasi lompat · klik layar untuk kamera · Klik kiri / E = TERKAM (lempar Survivor jatuh, ada cooldown)'
+    : 'WASD gerak · Shift lari (menguras stamina) · Spasi lompat · C jongkok · klik layar untuk kamera · T = paksa licin (tes)';
+
+  // --- UI tambahan: bar stamina (Survivor), hint Terkam (Killer), overlay detak jantung ---
+  const extraCSS = document.createElement('style');
+  extraCSS.textContent = `
+    #stamBar{position:fixed;left:14px;bottom:14px;width:160px;height:10px;background:rgba(0,0,0,.4);border:1px solid #2c2c33;z-index:4}
+    #stamBar i{display:block;height:100%;background:#f5f5f7;transition:width .1s linear}
+    #lungeHint{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:4;color:#fff;font:700 12px system-ui;text-shadow:0 2px 4px #000;opacity:.85}
+    .act.lunge{background:rgba(225,29,46,.85)}
+    #hbOverlay{position:fixed;inset:0;z-index:2;pointer-events:none}
+  `;
+  document.head.appendChild(extraCSS);
+  const hbOverlay = document.createElement('div'); hbOverlay.id = 'hbOverlay'; document.body.appendChild(hbOverlay);
+
+  let stamFill = null;
+  if (me.role === 'survivor') {
+    const bar = document.createElement('div'); bar.id = 'stamBar';
+    stamFill = document.createElement('i'); stamFill.style.width = '100%'; bar.appendChild(stamFill);
+    document.body.appendChild(bar);
+  } else {
+    const hint = document.createElement('div'); hint.id = 'lungeHint'; hint.textContent = 'TERKAM: klik kiri / E (jarak dekat, ada cooldown)';
+    document.body.appendChild(hint);
+    if ('ontouchstart' in window) {
+      const b = document.createElement('button'); b.className = 'act lunge'; b.id = 'bLunge'; b.textContent = 'Terkam';
+      b.style.bottom = '132px'; b.style.right = '96px';
+      document.getElementById('touch').appendChild(b);
+      b.addEventListener('touchstart', e => { e.preventDefault(); wantLunge = true; });
+    }
+  }
+
   const clock = new THREE.Clock(); camera.position.set(me.pos.x, 3, me.pos.z + 6);
   (function loop() {
     requestAnimationFrame(loop);
@@ -402,6 +481,31 @@ function startGame(slot, isOnline) {
     me.animate(dt, t);
     others.forEach(p => { p.updateRemote(dt); p.animate(dt, t); });
     updateCamera(dt);
+
+    // --- Terkam: Survivor sendiri yang mendeteksi kena terkam Killer (dari data jaringan) ---
+    if (online && me.role === 'survivor' && me.state === 'normal') {
+      if (me._lungeImmune > 0) me._lungeImmune -= dt;
+      else others.forEach(p => {
+        if (p.role === 'killer' && p.lungeActive) {
+          const dx = me.pos.x - p.pos.x, dz = me.pos.z - p.pos.z;
+          if (Math.hypot(dx, dz) < CFG.lungeRange) { me.fall(-dx, -dz); me._lungeImmune = 1.2; }
+        }
+      });
+    }
+
+    // --- bar stamina (Survivor) ---
+    if (stamFill) stamFill.style.width = (me.stamina / CFG.staminaMax * 100) + '%';
+
+    // --- detak jantung: makin dekat Killer, makin kuat vignette merah (Survivor) ---
+    if (me.role === 'survivor') {
+      let nearest = Infinity;
+      others.forEach(p => { if (p.role === 'killer') nearest = Math.min(nearest, Math.hypot(p.pos.x - me.pos.x, p.pos.z - me.pos.z)); });
+      if (nearest < CFG.heartbeatRange) {
+        const k = 1 - nearest / CFG.heartbeatRange, pulse = (Math.sin(t * (4 + k * 6)) * .5 + .5) * k;
+        hbOverlay.style.boxShadow = `inset 0 0 ${120 * k}px ${20 + 60 * pulse}px rgba(225,29,46,${0.15 + 0.45 * pulse})`;
+      } else hbOverlay.style.boxShadow = 'none';
+    }
+
     // HUD
     hudState.textContent = me.state === 'fallen' ? `JATUH! Bangun dalam ${Math.max(0, me.stateT).toFixed(1)} dtk`
       : me.state === 'gettingUp' ? 'Berdiri...' : me.isSlippery ? 'LANTAI LICIN!' : 'Normal';
