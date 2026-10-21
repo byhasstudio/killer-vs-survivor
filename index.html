@@ -160,5 +160,23 @@
 <script src="net.js"></script>
 <script src="game.js"></script>
 <script src="ui.js"></script>
+<script>
+// Banner "versi aplikasi baru tersedia" — hanya muncul di dalam app EXE/APK yang dibungkus
+// (bukan di tab browser biasa), dan hanya kalau "cangkang" native-nya sendiri sudah ketinggalan versi.
+(function () {
+  var BUILD = "__BUILD__"; // diganti otomatis oleh workflow build Windows/Android
+  var isNative = !!window.Capacitor || !!(window.process && window.process.versions && window.process.versions.electron);
+  if (!isNative || BUILD === "__BUILD__") return;
+  fetch('version.json?t=' + Date.now()).then(function (r) { return r.json(); }).then(function (v) {
+    if (v && v.build && v.build !== BUILD) {
+      var b = document.createElement('div');
+      b.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99;background:#e11d2e;color:#fff;text-align:center;padding:8px;font:700 13px system-ui;cursor:pointer';
+      b.textContent = '⬆ Versi aplikasi baru tersedia — klik untuk unduh';
+      b.onclick = function () { window.open('https://github.com/byhasstudio/killer-vs-survivor/releases/latest', '_blank'); };
+      document.body.appendChild(b);
+    }
+  }).catch(function () {});
+})();
+</script>
 </body>
 </html>
