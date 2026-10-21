@@ -4,6 +4,9 @@
   "description": "Killer VS Survivor (desktop)",
   "main": "main.js",
   "author": "byhasstudio",
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
   "devDependencies": {
     "electron": "^31.0.0",
     "electron-builder": "^24.13.3"
@@ -12,6 +15,7 @@
     "appId": "com.byhasstudio.killervssurvivor",
     "productName": "KillerVsSurvivor",
     "files": ["main.js", "app/**/*"],
-    "win": { "target": "portable" }
+    "win": { "target": "portable" },
+    "publish": { "provider": "github", "owner": "byhasstudio", "repo": "killer-vs-survivor" }
   }
 }
