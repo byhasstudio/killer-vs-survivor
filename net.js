@@ -25,7 +25,13 @@
      rooms/{kode}/state/{uid}  = posisi & status (dikirim ~10x/detik)
    ===================================================================== */
 const firebaseConfig = {
-  apiKey: '', authDomain: '', databaseURL: '', projectId: '', appId: ''
+  apiKey: 'AIzaSyA2V6BcpJjHGmtdqqpdzpG_Bcm_nehB5c8',
+  authDomain: 'survivor-vs-killer.firebaseapp.com',
+  databaseURL: 'https://survivor-vs-killer-default-rtdb.asia-southeast1.firebasedatabase.app',
+  projectId: 'survivor-vs-killer',
+  storageBucket: 'survivor-vs-killer.firebasestorage.app',
+  messagingSenderId: '141981157843',
+  appId: '1:141981157843:web:ed0affe891344ea6c28726'
 };
 
 const Net = (() => {
