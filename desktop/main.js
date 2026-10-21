@@ -1,7 +1,9 @@
 'use strict';
 // Pembungkus desktop (Electron): memuat game dari GitHub Pages supaya login Firebase
-// (domain resmi) dan update otomatis. Jika offline / halaman belum ada -> pakai salinan lokal (app/).
+// (domain resmi) dan konten (game.js dkk) otomatis ter-update tiap dibuka.
+// Jika offline / halaman belum ada -> pakai salinan lokal (app/).
 const { app, BrowserWindow } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const SITE = 'https://byhasstudio.github.io/killer-vs-survivor/';
 
@@ -13,5 +15,10 @@ function createWindow() {
   win.loadURL(SITE);
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  // Konten game sudah otomatis ter-update sendiri (dimuat live dari GitHub Pages).
+  // Ini untuk update "cangkang" Electron itu sendiri: cek rilis baru & pasang otomatis di background.
+  autoUpdater.checkForUpdatesAndNotify().catch(() => {});
+});
 app.on('window-all-closed', () => app.quit());
