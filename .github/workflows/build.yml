@@ -22,7 +22,10 @@ jobs:
           V="1.0.${{ github.run_number }}"
           echo "VER=$V" >> "$GITHUB_ENV"
           cd desktop
+          # GITHUB_ENV baru terbaca di step berikutnya, jadi VER harus di-export langsung di sini
+          export VER="$V"
           node -e "const p=require('./package.json');p.version=process.env.VER;require('fs').writeFileSync('package.json',JSON.stringify(p,null,2));"
+          node -e "const v=require('./package.json').version;if(!v){console.error('version kosong');process.exit(1)};console.log('package.json version =',v)"
       - name: Salin file web ke folder desktop
         shell: bash
         run: |
