@@ -174,8 +174,7 @@
       var b = document.createElement('div');
       b.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99;background:#e11d2e;color:#fff;text-align:center;padding:8px;font:700 13px system-ui;cursor:pointer';
       b.textContent = '⬆ Versi aplikasi baru tersedia — klik untuk unduh';
-      var url = window.Capacitor ? 'https://github.com/byhasstudio/killer-vs-survivor/releases/tag/apk-latest' : 'https://github.com/byhasstudio/killer-vs-survivor/releases/latest';
-      b.onclick = function () { window.open(url, '_blank'); };
+      b.onclick = function () { window.open('https://github.com/byhasstudio/killer-vs-survivor/releases/latest', '_blank'); };
       document.body.appendChild(b);
     }
   }).catch(function () {});
