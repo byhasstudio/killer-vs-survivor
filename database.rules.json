@@ -70,6 +70,74 @@
         },
         "state": {
           "$u": { ".write": "auth != null && auth.uid === $u && root.child('rooms').child($room).child('allowed').child(auth.uid).exists()" }
+        },
+        "game": {
+          ".write": "auth != null && root.child('rooms').child($room).child('meta').child('host').val() === auth.uid",
+          "gas": {
+            "$gi": {
+              ".validate": "$gi.matches(/^[0-5]$/)",
+              "c": {
+                "$gu": {
+                  ".write": "auth != null && auth.uid === $gu && root.child('rooms').child($room).child('allowed').child(auth.uid).exists()",
+                  ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
+                }
+              },
+              "sab": {
+                ".write": "auth != null && root.child('rooms').child($room).child('meta').child('killer').val() === auth.uid",
+                ".validate": "newData.isNumber() && newData.val() >= 0"
+              },
+              "done": {
+                ".write": "auth != null && root.child('rooms').child($room).child('allowed').child(auth.uid).exists()",
+                ".validate": "newData.isBoolean()"
+              },
+              "leak": {
+                ".write": "auth != null && root.child('rooms').child($room).child('allowed').child(auth.uid).exists()",
+                ".validate": "newData.isNumber()"
+              }
+            }
+          },
+          "gate": {
+            "$gt": {
+              ".validate": "$gt.matches(/^[0-1]$/)",
+              "c": {
+                "$tu": {
+                  ".write": "auth != null && auth.uid === $tu && root.child('rooms').child($room).child('allowed').child(auth.uid).exists()",
+                  ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
+                }
+              },
+              "open": {
+                ".write": "auth != null && root.child('rooms').child($room).child('allowed').child(auth.uid).exists()",
+                ".validate": "newData.isBoolean()"
+              }
+            }
+          },
+          "sv": {
+            "$su": {
+              ".write": "auth != null && auth.uid === $su && root.child('rooms').child($room).child('allowed').child(auth.uid).exists()",
+              "hp": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 2" },
+              "out": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 2" }
+            }
+          },
+          "rev": {
+            "$rt": {
+              "$ru": {
+                ".write": "auth != null && auth.uid === $ru && root.child('rooms').child($room).child('allowed').child(auth.uid).exists()",
+                ".validate": "newData.isNumber()"
+              }
+            }
+          },
+          "exec": {
+            "$et": {
+              ".write": "auth != null && root.child('rooms').child($room).child('meta').child('killer').val() === auth.uid",
+              ".validate": "newData.isNumber()"
+            }
+          },
+          "pal": {
+            "$pi": {
+              ".write": "auth != null && root.child('rooms').child($room).child('allowed').child(auth.uid).exists()",
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 2"
+            }
+          }
         }
       }
     }
