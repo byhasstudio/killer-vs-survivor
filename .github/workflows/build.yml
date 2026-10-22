@@ -30,7 +30,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p desktop/app
-          cp index.html chibi.js net.js game.js visual.js ui.js desktop/app/
+          cp index.html chibi.js net.js game.js visual.js mechanics.js ui.js desktop/app/
           sed -i "s/__BUILD__/${{ github.run_number }}/g" desktop/app/index.html
       - name: Build & publish EXE (auto-update aktif)
         working-directory: desktop
@@ -52,7 +52,7 @@ jobs:
       - name: Build APK (Capacitor; memuat konten live + banner update)
         run: |
           mkdir www
-          cp index.html chibi.js net.js game.js visual.js ui.js www/
+          cp index.html chibi.js net.js game.js visual.js mechanics.js ui.js www/
           sed -i "s/__BUILD__/${{ github.run_number }}/g" www/index.html
           npm init -y > /dev/null
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
