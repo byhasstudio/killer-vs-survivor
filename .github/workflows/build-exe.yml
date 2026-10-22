@@ -1,0 +1,51 @@
+name: Build EXE (Windows)
+
+# Workflow EXE berdiri sendiri: tidak menunggu / bergantung pada build APK.
+# Membuat rilis v1.0.<N> berisi EXE portable + file auto-update (electron-updater).
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['README.md', 'version.json', '.github/workflows/build-apk.yml', '.github/workflows/version.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-exe
+  cancel-in-progress: false
+
+jobs:
+  exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Set versi build
+        shell: bash
+        run: |
+          # run_number workflow ini mulai dari 1, jadi diberi offset 50 agar selalu lebih besar dari rilis lama (v1.0.1 - v1.0.9+)
+          V="1.0.$(( ${{ github.run_number }} + 50 ))"
+          echo "VER=$V" >> "$GITHUB_ENV"
+          cd desktop
+          export VER="$V"
+          node -e "const p=require('./package.json');p.version=process.env.VER;require('fs').writeFileSync('package.json',JSON.stringify(p,null,2));"
+          node -e "const v=require('./package.json').version;if(!v){console.error('version kosong');process.exit(1)};console.log('package.json version =',v)"
+      - name: Salin file web ke folder desktop
+        shell: bash
+        run: |
+          # ID build = commit terakhir yang mengubah isi game (bukan version.json/README/workflow); sama untuk EXE & APK
+          BUILD=$(git log -1 --format=%h -- . ':!version.json' ':!README.md' ':!.github')
+          mkdir -p desktop/app
+          cp index.html chibi.js net.js game.js visual.js mechanics.js ui.js desktop/app/
+          sed -i "s/__BUILD__/$BUILD/g" desktop/app/index.html
+      - name: Build & publish EXE (auto-update aktif)
+        working-directory: desktop
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npm install
+          npx electron-builder --win portable --publish always

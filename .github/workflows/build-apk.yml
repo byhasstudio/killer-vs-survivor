@@ -1,0 +1,51 @@
+name: Build APK (Android)
+
+# Workflow APK berdiri sendiri: tidak menunggu / bergantung pada build EXE.
+# APK diunggah ke rilis tetap bernama "apk-latest" (tidak mengganggu rilis EXE / auto-update).
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['README.md', 'version.json', '.github/workflows/build-exe.yml', '.github/workflows/version.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-apk
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - name: Build APK (Capacitor; memuat konten live + banner update)
+        run: |
+          BUILD=$(git log -1 --format=%h -- . ':!version.json' ':!README.md' ':!.github')
+          mkdir www
+          cp index.html chibi.js net.js game.js visual.js mechanics.js ui.js www/
+          sed -i "s/__BUILD__/$BUILD/g" www/index.html
+          npm init -y > /dev/null
+          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
+          npx cap add android
+          npx cap sync android
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk ../KillerVsSurvivor.apk
+      - uses: actions/upload-artifact@v4
+        with: { name: apk, path: KillerVsSurvivor.apk }
+      - name: Unggah APK ke rilis apk-latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          R="${{ github.repository }}"
+          gh release view apk-latest --repo "$R" > /dev/null 2>&1 || \
+            gh release create apk-latest --repo "$R" --title "APK Android (terbaru)" --notes "APK terbaru, diperbarui otomatis tiap build." --latest=false
+          gh release upload apk-latest KillerVsSurvivor.apk --clobber --repo "$R"
