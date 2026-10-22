@@ -48,4 +48,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           npm install
-          npx electron-builder --win portable --publish always
+          # releaseType=release: rilis langsung publik (bukan draft) supaya electron-updater & link unduh bisa menemukannya
+          npx electron-builder --win portable --publish always -c.publish.releaseType=release
